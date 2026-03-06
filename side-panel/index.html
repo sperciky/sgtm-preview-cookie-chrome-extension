@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SGTM Preview Cookie</title>
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f8f9fa;
+      --surface: #ffffff;
+      --primary: #1a73e8;
+      --primary-hover: #1557b0;
+      --danger: #d93025;
+      --danger-hover: #b02318;
+      --success: #137333;
+      --success-bg: #e6f4ea;
+      --text: #202124;
+      --text-muted: #5f6368;
+      --border: #dadce0;
+      --tag-bg: #e8f0fe;
+      --tag-text: #1967d2;
+      --radius: 8px;
+      --shadow: 0 1px 3px rgba(0,0,0,0.12);
+    }
+
+    body {
+      font-family: 'Google Sans', Roboto, Arial, sans-serif;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--bg);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ───────────────────────────────────────────────── */
+    .header {
+      background: var(--primary);
+      color: #fff;
+      padding: 14px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+      flex-shrink: 0;
+    }
+    .header svg { flex-shrink: 0; }
+    .header h1 { font-size: 15px; font-weight: 500; line-height: 1.2; }
+    .header p  { font-size: 11px; opacity: 0.85; margin-top: 2px; }
+
+    /* ── Controls bar ─────────────────────────────────────────── */
+    .controls {
+      padding: 12px 14px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      flex-shrink: 0;
+    }
+
+    /* ── Buttons ──────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 7px 14px;
+      border-radius: 4px;
+      border: 1px solid transparent;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.15s, box-shadow 0.15s;
+      white-space: nowrap;
+    }
+    .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #fff;
+      border-color: var(--primary);
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); border-color: var(--primary-hover); }
+
+    .btn-outline {
+      background: #fff;
+      color: var(--primary);
+      border-color: var(--border);
+    }
+    .btn-outline:hover:not(:disabled) { background: #f1f3f4; }
+
+    .btn-danger-outline {
+      background: #fff;
+      color: var(--danger);
+      border-color: var(--border);
+    }
+    .btn-danger-outline:hover:not(:disabled) { background: #fce8e6; }
+
+    .btn-sm {
+      padding: 4px 10px;
+      font-size: 11px;
+    }
+
+    .btn-icon {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 4px;
+      color: var(--text-muted);
+      display: inline-flex;
+      align-items: center;
+    }
+    .btn-icon:hover { background: #f1f3f4; color: var(--text); }
+
+    /* ── Status banner ────────────────────────────────────────── */
+    #status-banner {
+      margin: 10px 14px 0;
+      padding: 8px 12px;
+      border-radius: var(--radius);
+      font-size: 12px;
+      display: none;
+      align-items: center;
+      gap: 8px;
+    }
+    #status-banner.success { background: var(--success-bg); color: var(--success); display: flex; }
+    #status-banner.error   { background: #fce8e6; color: var(--danger); display: flex; }
+    #status-banner.info    { background: #e8f0fe; color: var(--tag-text); display: flex; }
+
+    /* ── Empty state ──────────────────────────────────────────── */
+    #empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+    }
+    #empty-state svg { opacity: 0.3; margin-bottom: 12px; }
+    #empty-state h2  { font-size: 14px; font-weight: 500; margin-bottom: 6px; color: var(--text); }
+    #empty-state p   { font-size: 12px; line-height: 1.5; }
+
+    /* ── Token list ───────────────────────────────────────────── */
+    #token-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 14px 14px;
+    }
+
+    .token-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 10px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+      transition: box-shadow 0.15s;
+    }
+    .token-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.14); }
+    .token-card.new-flash { animation: flash 0.6s ease-out; }
+
+    @keyframes flash {
+      0%   { background: #e8f0fe; }
+      100% { background: var(--surface); }
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 12px 6px;
+      gap: 8px;
+    }
+
+    .domain-badge {
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 180px;
+    }
+
+    .card-timestamp {
+      font-size: 10px;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+
+    .token-value {
+      font-family: 'Roboto Mono', 'Courier New', monospace;
+      font-size: 11px;
+      background: #f8f9fa;
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 7px 12px;
+      word-break: break-all;
+      color: #3c4043;
+      user-select: all;
+    }
+
+    .card-actions {
+      display: flex;
+      gap: 6px;
+      padding: 8px 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .cookie-info {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-left: auto;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* ── Footer ───────────────────────────────────────────────── */
+    .footer {
+      padding: 8px 14px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--text-muted);
+      text-align: center;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect width="24" height="24" rx="4" fill="rgba(255,255,255,0.15)"/>
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z" fill="white" opacity="0.4"/>
+      <path d="M7 3.5A9.5 9.5 0 0 1 21 12" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+      <circle cx="12" cy="12" r="3" fill="white"/>
+      <path d="M15 9l2-2M9 15l-2 2" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+    </svg>
+    <div>
+      <h1>SGTM Preview Cookie</h1>
+      <p>Capture &amp; apply server-side GTM preview tokens</p>
+    </div>
+  </div>
+
+  <!-- Action controls -->
+  <div class="controls">
+    <button class="btn btn-primary" id="btn-scrape">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M17.65 6.35C16.2 4.9 14.21 4 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08c-.82 2.33-3.04 4-5.65 4-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z"/>
+      </svg>
+      Scrape Token
+    </button>
+    <button class="btn btn-outline" id="btn-clear" style="margin-left:auto">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/>
+      </svg>
+      Clear All
+    </button>
+  </div>
+
+  <!-- Status banner -->
+  <div id="status-banner"></div>
+
+  <!-- Token cards / empty state -->
+  <div id="token-list">
+    <div id="empty-state">
+      <svg width="56" height="56" viewBox="0 0 24 24" fill="var(--primary)">
+        <path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 14H4V6h16v12zM6 10h2v2H6zm0 4h8v2H6zm10 0h2v2h-2zm-6-4h8v2h-8z"/>
+      </svg>
+      <h2>No tokens captured yet</h2>
+      <p>
+        Navigate to a GTM debug URL<br>
+        (e.g. <code>sgtm.example.com/gtm/debug</code>),<br>
+        then click <strong>Scrape Token</strong>.
+      </p>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">Cookies expire in 7 days &nbsp;·&nbsp; SGTM Preview Cookie v1.0</div>
+
+  <script src="panel.js"></script>
+</body>
+</html>

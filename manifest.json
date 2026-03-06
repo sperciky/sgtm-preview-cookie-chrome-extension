@@ -1,0 +1,36 @@
+{
+  "manifest_version": 3,
+  "name": "SGTM Preview Cookie",
+  "version": "1.0.0",
+  "description": "Captures x-gtm-server-preview tokens from GTM debug pages and sets them as cookies on the target domain.",
+  "permissions": [
+    "sidePanel",
+    "cookies",
+    "tabs",
+    "storage"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "SGTM Preview Cookie"
+  },
+  "side_panel": {
+    "default_path": "side-panel/index.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*/gtm/debug*"],
+      "js": ["content/content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

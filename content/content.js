@@ -1,0 +1,113 @@
+'use strict';
+
+// Only run on GTM debug pages
+if (!window.location.pathname.includes('/gtm/debug')) {
+  // No-op — manifest match pattern already guards this, but be defensive
+  throw new Error('sgtm-preview: not a debug page, exiting');
+}
+
+const PAGE_HOSTNAME = window.location.hostname;
+let lastReportedToken = null;
+
+// ── Token extraction ──────────────────────────────────────────────────────────
+
+function extractToken() {
+  // Primary selector: the read-only header snippet textarea inside the dialog
+  const textarea = document.querySelector(
+    'textarea.gtm-snippet__textarea--header.header-snippet, ' +
+    'textarea.header-snippet'
+  );
+  return textarea ? textarea.value.trim() : null;
+}
+
+function reportToken(token) {
+  if (!token || token === lastReportedToken) return;
+  lastReportedToken = token;
+  chrome.runtime.sendMessage({
+    type: 'PREVIEW_TOKEN_FOUND',
+    token,
+    hostname: PAGE_HOSTNAME,
+    url: window.location.href,
+    timestamp: Date.now()
+  }).catch(() => {
+    // Background may not be listening yet — safe to ignore
+  });
+}
+
+// ── MutationObserver: watch for dialog appearing ──────────────────────────────
+
+const observer = new MutationObserver(() => {
+  reportToken(extractToken());
+});
+
+observer.observe(document.documentElement, { childList: true, subtree: true });
+
+// Check immediately if dialog already open on page load
+reportToken(extractToken());
+
+// ── Commands from the side panel (via background) ─────────────────────────────
+
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type === 'TRIGGER_SCRAPE') {
+    triggerScrape()
+      .then(sendResponse)
+      .catch(err => sendResponse({ success: false, error: err.message }));
+    return true; // keep channel open for async response
+  }
+
+  if (msg.type === 'GET_TOKEN') {
+    sendResponse({ token: extractToken(), hostname: PAGE_HOSTNAME });
+  }
+});
+
+// ── Auto-click through menu to open the dialog ───────────────────────────────
+
+async function triggerScrape() {
+  // Close any existing dialog first
+  const existingCloseBtn = document.querySelector('.ctui-dialog-header__close [role="button"]');
+  if (existingCloseBtn) {
+    existingCloseBtn.click();
+    await sleep(300);
+  }
+
+  // Step 1: Click the three-dots overflow menu button
+  const menuBtn = document.querySelector('.gtm-debug-header-overflow-menu');
+  if (!menuBtn) throw new Error('Overflow menu button not found. Make sure you are on the GTM debug page.');
+  menuBtn.click();
+  await sleep(500);
+
+  // Step 2: Click "Send requests manually" menu item
+  const allListItems = Array.from(document.querySelectorAll('li[role="button"], [data-ng-click*="showSgtmManualRequestsDialog"]'));
+  const sendManuallyItem = allListItems.find(el =>
+    el.textContent.trim().toLowerCase().includes('send requests manually')
+  );
+  if (!sendManuallyItem) throw new Error('"Send requests manually" menu item not found.');
+  sendManuallyItem.click();
+
+  // Step 3: Wait for the dialog and extract the token
+  const token = await waitForToken(3000);
+  if (!token) throw new Error('Dialog opened but no token found within 3s.');
+
+  reportToken(token);
+  return { success: true, token, hostname: PAGE_HOSTNAME };
+}
+
+function waitForToken(timeoutMs) {
+  return new Promise((resolve) => {
+    const deadline = Date.now() + timeoutMs;
+    const poll = setInterval(() => {
+      const token = extractToken();
+      if (token) {
+        clearInterval(poll);
+        resolve(token);
+      } else if (Date.now() > deadline) {
+        clearInterval(poll);
+        resolve(null);
+      }
+    }, 100);
+  });
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
