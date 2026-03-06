@@ -62,34 +62,70 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 
 // ── Auto-click through menu to open the dialog ───────────────────────────────
 
+/**
+ * Dispatch a realistic MouseEvent instead of calling .click() directly.
+ * Plain .click() on AngularJS-managed elements can cause "Possibly unhandled
+ * rejection: undefined" errors in the GTM debug app's digest cycle because
+ * Angular's $apply wraps the handler but the event doesn't flow through its
+ * zone properly. A bubbling MouseEvent triggers the ng-click binding the same
+ * way a real user interaction does.
+ */
+function simulateClick(el) {
+  el.dispatchEvent(new MouseEvent('click', {
+    bubbles: true,
+    cancelable: true,
+    view: window
+  }));
+}
+
 async function triggerScrape() {
   // Close any existing dialog first
   const existingCloseBtn = document.querySelector('.ctui-dialog-header__close [role="button"]');
   if (existingCloseBtn) {
-    existingCloseBtn.click();
+    simulateClick(existingCloseBtn);
     await sleep(300);
   }
 
   // Step 1: Click the three-dots overflow menu button
   const menuBtn = document.querySelector('.gtm-debug-header-overflow-menu');
   if (!menuBtn) throw new Error('Overflow menu button not found. Make sure you are on the GTM debug page.');
-  menuBtn.click();
-  await sleep(500);
+  simulateClick(menuBtn);
 
-  // Step 2: Click "Send requests manually" menu item
-  const allListItems = Array.from(document.querySelectorAll('li[role="button"], [data-ng-click*="showSgtmManualRequestsDialog"]'));
-  const sendManuallyItem = allListItems.find(el =>
-    el.textContent.trim().toLowerCase().includes('send requests manually')
+  // Step 2: Wait for the menu items to be rendered, then click "Send requests manually"
+  const sendManuallyItem = await waitForElement(
+    () => {
+      const items = document.querySelectorAll('li[role="button"], [data-ng-click*="showSgtmManualRequestsDialog"]');
+      return Array.from(items).find(el =>
+        el.textContent.trim().toLowerCase().includes('send requests manually')
+      ) ?? null;
+    },
+    2000
   );
-  if (!sendManuallyItem) throw new Error('"Send requests manually" menu item not found.');
-  sendManuallyItem.click();
+  if (!sendManuallyItem) throw new Error('"Send requests manually" menu item not found after opening the overflow menu.');
+  simulateClick(sendManuallyItem);
 
   // Step 3: Wait for the dialog and extract the token
-  const token = await waitForToken(3000);
-  if (!token) throw new Error('Dialog opened but no token found within 3s.');
+  const token = await waitForToken(4000);
+  if (!token) throw new Error('Dialog opened but no token found within 4s.');
 
   reportToken(token);
   return { success: true, token, hostname: PAGE_HOSTNAME };
+}
+
+/**
+ * Poll until `finder()` returns a non-null value, or until timeoutMs elapses.
+ */
+function waitForElement(finder, timeoutMs) {
+  return new Promise((resolve) => {
+    const el = finder();
+    if (el) { resolve(el); return; }
+    const deadline = Date.now() + timeoutMs;
+    const poll = setInterval(() => {
+      const found = finder();
+      if (found) { clearInterval(poll); resolve(found); }
+      else if (Date.now() > deadline) { clearInterval(poll); resolve(null); }
+    }, 100);
+  });
 }
 
 function waitForToken(timeoutMs) {
