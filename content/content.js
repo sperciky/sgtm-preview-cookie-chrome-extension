@@ -8,6 +8,7 @@ if (!window.location.pathname.includes('/gtm/debug')) {
 
 const PAGE_HOSTNAME = window.location.hostname;
 let lastReportedToken = null;
+let isEnabled = true;   // kept in sync with background storage via SET_ENABLED messages
 
 // ── Token extraction ──────────────────────────────────────────────────────────
 
@@ -21,6 +22,7 @@ function extractToken() {
 }
 
 function reportToken(token) {
+  if (!isEnabled) return;
   if (!token || token === lastReportedToken) return;
   lastReportedToken = token;
   chrome.runtime.sendMessage({
@@ -33,6 +35,11 @@ function reportToken(token) {
     // Background may not be listening yet — safe to ignore
   });
 }
+
+// ── Sync enabled state from storage on load ───────────────────────────────────
+chrome.storage.local.get('enabled').then(({ enabled = true }) => {
+  isEnabled = enabled;
+});
 
 // ── MutationObserver: watch for dialog appearing ──────────────────────────────
 
@@ -48,7 +55,16 @@ reportToken(extractToken());
 // ── Commands from the side panel (via background) ─────────────────────────────
 
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg.type === 'SET_ENABLED') {
+    isEnabled = msg.enabled;
+    return;
+  }
+
   if (msg.type === 'TRIGGER_SCRAPE') {
+    if (!isEnabled) {
+      sendResponse({ success: false, error: 'Extension is disabled. Enable it with the toggle in the side panel.' });
+      return;
+    }
     triggerScrape()
       .then(sendResponse)
       .catch(err => sendResponse({ success: false, error: err.message }));

@@ -23,6 +23,24 @@ chrome.runtime.onConnect.addListener((port) => {
         break;
       }
 
+      case 'GET_ENABLED': {
+        const { enabled = true } = await chrome.storage.local.get('enabled');
+        port.postMessage({ type: 'ENABLED_STATE', enabled });
+        break;
+      }
+
+      case 'SET_ENABLED': {
+        await chrome.storage.local.set({ enabled: msg.enabled });
+        // Notify all content scripts so auto-detection respects the new state
+        const tabs = await chrome.tabs.query({});
+        for (const tab of tabs) {
+          if (tab.url && tab.url.includes('/gtm/debug')) {
+            chrome.tabs.sendMessage(tab.id, { type: 'SET_ENABLED', enabled: msg.enabled }).catch(() => {});
+          }
+        }
+        break;
+      }
+
       case 'SET_COOKIE': {
         try {
           const result = await handleSetCookie(msg.token, msg.hostname, msg.openTab);
@@ -73,11 +91,13 @@ chrome.runtime.onConnect.addListener((port) => {
 // ── Messages from content script ─────────────────────────────────────────────
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.type === 'PREVIEW_TOKEN_FOUND') {
-    saveToken(msg).then(async (tokens) => {
-      // Broadcast to all open side panels
-      for (const port of sidePanelPorts.values()) {
-        try { port.postMessage({ type: 'PREVIEW_TOKEN_FOUND', entry: msg }); } catch (_) {}
-      }
+    chrome.storage.local.get('enabled').then(({ enabled = true }) => {
+      if (!enabled) return;   // extension is disabled — drop the token
+      saveToken(msg).then(() => {
+        for (const port of sidePanelPorts.values()) {
+          try { port.postMessage({ type: 'PREVIEW_TOKEN_FOUND', entry: msg }); } catch (_) {}
+        }
+      });
     });
   }
   return false;
