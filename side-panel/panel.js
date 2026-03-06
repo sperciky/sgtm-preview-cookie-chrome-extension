@@ -3,13 +3,16 @@
 // ── State ─────────────────────────────────────────────────────────────────────
 let port = null;
 let tokens = [];   // [{ hostname, token, url, timestamp }]
+let isEnabled = true;
 
 // ── DOM refs ──────────────────────────────────────────────────────────────────
-const tokenList    = document.getElementById('token-list');
-const emptyState   = document.getElementById('empty-state');
-const statusBanner = document.getElementById('status-banner');
-const btnScrape    = document.getElementById('btn-scrape');
-const btnClear     = document.getElementById('btn-clear');
+const tokenList     = document.getElementById('token-list');
+const emptyState    = document.getElementById('empty-state');
+const statusBanner  = document.getElementById('status-banner');
+const btnScrape     = document.getElementById('btn-scrape');
+const btnClear      = document.getElementById('btn-clear');
+const toggleInput   = document.getElementById('toggle-enabled');
+const toggleLabel   = document.getElementById('toggle-label');
 
 // ── Connection to background ──────────────────────────────────────────────────
 async function connect() {
@@ -23,8 +26,9 @@ async function connect() {
     setTimeout(connect, 1000);   // reconnect after 1s
   });
 
-  // Load persisted tokens
+  // Load persisted tokens and enabled state
   port.postMessage({ type: 'GET_TOKENS' });
+  port.postMessage({ type: 'GET_ENABLED' });
 }
 
 function onBackgroundMessage(msg) {
@@ -50,6 +54,10 @@ function onBackgroundMessage(msg) {
       } else {
         showStatus(`Failed to set cookie: ${msg.error}`, 'error');
       }
+      break;
+
+    case 'ENABLED_STATE':
+      applyEnabledState(msg.enabled);
       break;
 
     case 'SCRAPE_RESULT':
@@ -81,6 +89,19 @@ btnClear.addEventListener('click', () => {
   if (!confirm('Clear all captured tokens?')) return;
   port.postMessage({ type: 'CLEAR_TOKENS' });
 });
+
+toggleInput.addEventListener('change', () => {
+  if (!port) return;
+  port.postMessage({ type: 'SET_ENABLED', enabled: toggleInput.checked });
+  applyEnabledState(toggleInput.checked);
+});
+
+function applyEnabledState(enabled) {
+  isEnabled = enabled;
+  toggleInput.checked = enabled;
+  toggleLabel.textContent = enabled ? 'On' : 'Off';
+  document.body.classList.toggle('ext-disabled', !enabled);
+}
 
 // ── Token state helpers ───────────────────────────────────────────────────────
 function upsertToken(entry) {

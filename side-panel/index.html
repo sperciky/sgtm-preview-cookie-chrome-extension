@@ -220,6 +220,58 @@
       text-overflow: ellipsis;
     }
 
+    /* ── Toggle switch ────────────────────────────────────────── */
+    .toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      margin-left: auto;
+      flex-shrink: 0;
+    }
+    .toggle-label {
+      font-size: 11px;
+      font-weight: 500;
+      opacity: 0.9;
+      min-width: 36px;
+      text-align: right;
+    }
+    .toggle {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      border-radius: 11px;
+      background: rgba(255,255,255,0.3);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle input:checked + .toggle-track { background: rgba(255,255,255,0.9); }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--primary);
+      transition: transform 0.2s, background 0.2s;
+    }
+    .toggle input:not(:checked) + .toggle-track::after {
+      background: rgba(255,255,255,0.6);
+    }
+    .toggle input:checked + .toggle-track::after { transform: translateX(18px); }
+
+    /* Dim the whole panel body when disabled */
+    body.ext-disabled .controls,
+    body.ext-disabled #token-list { opacity: 0.55; pointer-events: none; }
+    body.ext-disabled #btn-scrape { cursor: not-allowed; }
+
     /* ── Footer ───────────────────────────────────────────────── */
     .footer {
       padding: 8px 14px;
@@ -246,6 +298,14 @@
     <div>
       <h1>SGTM Preview Cookie</h1>
       <p>Capture &amp; apply server-side GTM preview tokens</p>
+    </div>
+    <!-- Enable / disable toggle -->
+    <div class="toggle-wrap">
+      <span class="toggle-label" id="toggle-label">On</span>
+      <label class="toggle" title="Enable or disable the extension">
+        <input type="checkbox" id="toggle-enabled" checked />
+        <span class="toggle-track"></span>
+      </label>
     </div>
   </div>
 
