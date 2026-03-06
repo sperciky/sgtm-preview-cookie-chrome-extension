@@ -122,7 +122,7 @@ async function handleSetCookie(token, sgtmHostname, openTab) {
     value: token,
     domain: cookieDomain,
     path: '/',
-    secure: false,
+    secure: true,          // required when sameSite is 'no_restriction' (SameSite=None)
     httpOnly: false,
     sameSite: 'no_restriction',
     expirationDate: Math.floor(Date.now() / 1000) + 86400 * 7   // 7 days
